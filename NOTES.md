@@ -1,0 +1,7 @@
+- allowing contract to support several escrow accounts
+- using escrow account map instead of array, to save gas cost/optimize for efficiency
+    - also allows to fetch accounts by a key, and can use a semantically meaningful key
+    - dynamically sized array is less gas efficient (citations needed)
+- using uni v2 as a reference for 'best practices'
+    - using a factory pattern to create pairs
+        - likely unnecessary for escrow, as they are short lived contracts, and increase cost of creating escrow accounts
