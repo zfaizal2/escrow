@@ -20,7 +20,7 @@ contract EscrowTest is Test {
     
     address public payer =  0xEBcFba9f74a34f7118D1D2C078fCff4719D6518D;
     address public recipient = 0x534347d1766E89dB52C440AF833f0384d861B13E;
-    uint256 public amount = 1 ether;
+    uint256 public defaultAmount = 5;
     uint256 public id = 1;
 
     function setUp() public {
@@ -30,8 +30,6 @@ contract EscrowTest is Test {
         // Fund accounts
         vm.deal(payer, 10 ether);
         vm.deal(recipient, 0.1 ether);
-        token.mint(payer, 10 ether);
-        token.mint(recipient, 10 ether);
     }
 
     function test_SanityCheck() public {
@@ -43,39 +41,40 @@ contract EscrowTest is Test {
 
     function test_CreateEscrowWithEth() public {
         vm.startPrank(payer);
-        escrow.createEscrowAccount{value: 1 ether}(id, payer, recipient, amount, address(0));
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
         vm.stopPrank();
 
         (address _payer, address _recipient, uint256 _amount, bool _settled, address _token, , ) = escrow.escrowAccounts(id);
         
         assertEq(_payer, payer);
         assertEq(_recipient, recipient);
-        assertEq(_amount, amount);
+        assertEq(_amount, defaultAmount);
         assertEq(_settled, false);
         assertEq(_token, address(0));
-        assertEq(address(escrow).balance, amount);
+        assertEq(address(escrow).balance, defaultAmount);
     }
 
     function test_CreateEscrowWithERC20() public {
+        token.mint(payer, 10);
         vm.startPrank(payer);
-        token.approve(address(escrow), amount);
-        escrow.createEscrowAccount(id, payer, recipient, amount, address(token));
+        token.approve(address(escrow), defaultAmount);
+        escrow.createEscrowAccount(id, payer, recipient, defaultAmount, address(token));
         vm.stopPrank();
 
         (address _payer, address _recipient, uint256 _amount, bool _settled, address _token, , ) = escrow.escrowAccounts(id);
         
         assertEq(_payer, payer);
         assertEq(_recipient, recipient);
-        assertEq(_amount, amount);
+        assertEq(_amount, defaultAmount);
         assertEq(_settled, false);
         assertEq(_token, address(token));
-        assertEq(token.balanceOf(address(escrow)), amount);
+        assertEq(token.balanceOf(address(escrow)), defaultAmount);
     }
 
     function test_SettleEscrowWithEth() public {
         // Create escrow first
         vm.startPrank(payer);
-        escrow.createEscrowAccount{value: amount}(id, payer, recipient, amount, address(0));
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
         vm.stopPrank();
 
         uint256 recipientBalanceBefore = recipient.balance;
@@ -86,13 +85,13 @@ contract EscrowTest is Test {
         (, , , bool _settled, , , Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
         assertEq(_settled, true);
         assertEq(uint256(_status), uint256(Escrow.EscrowStatus.SETTLED));
-        assertEq(recipient.balance - recipientBalanceBefore, amount);
+        assertEq(recipient.balance - recipientBalanceBefore, defaultAmount);
     }
 
     function test_CancelEscrowWithEth() public {
         // Create escrow first
         vm.startPrank(payer);
-        escrow.createEscrowAccount{value: amount}(id, payer, recipient, amount, address(0));
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
         vm.stopPrank();
 
         // Warp time to after 30 days
@@ -106,13 +105,36 @@ contract EscrowTest is Test {
         (, , , bool _settled, , , Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
         assertEq(_settled, true);
         assertEq(uint256(_status), uint256(Escrow.EscrowStatus.CANCELLED));
-        assertEq(payer.balance - payerBalanceBefore, amount);
+        assertEq(payer.balance - payerBalanceBefore, defaultAmount);
+    }
+
+    function test_CancelEscrowWithEthAsRecipient() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+
+        // Warp time to after 30 days
+        vm.warp(block.timestamp + 31 days);
+
+        uint256 payerBalanceBefore = payer.balance;
+
+        // Set signer as recipient
+        vm.startPrank(recipient);
+        escrow.cancelEscrowAccount(id);
+        vm.stopPrank();
+
+        (, , , bool _settled, , , Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
+        assertEq(_settled, true);
+        assertEq(uint256(_status), uint256(Escrow.EscrowStatus.CANCELLED));
+        assertEq(payer.balance - payerBalanceBefore, defaultAmount);
     }
 
     function testRevert_SettleExpiredEscrow() public {
         // Create escrow first
         vm.startPrank(payer);
-        escrow.createEscrowAccount{value: amount}(id, payer, recipient, amount, address(0));
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
         vm.stopPrank();
 
         // Warp time to after 30 days
@@ -125,10 +147,55 @@ contract EscrowTest is Test {
     function testRevert_CancelActiveEscrow() public {
         // Create escrow first
         vm.startPrank(payer);
-        escrow.createEscrowAccount{value: amount}(id, payer, recipient, amount, address(0));
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
         vm.stopPrank();
 
         vm.expectRevert("Escrow account is still active");
         escrow.cancelEscrowAccount(id);
+    }
+
+    function test_Fuzz_CreateEscrowWithEth(uint256 amount) public {
+        if (amount > 0) {
+            vm.deal(payer, amount);
+        }
+        vm.startPrank(payer);
+        if (amount <= 0) {
+            vm.expectRevert("Amount must be greater than 0");
+        }
+        escrow.createEscrowAccount{value: amount}(id, payer, recipient, amount, address(0));
+        vm.stopPrank();
+        if (amount > 0) {
+            (address _payer, address _recipient, uint256 _amount, bool _settled, address _token, , ) = escrow.escrowAccounts(id);
+
+            assertEq(_payer, payer);
+            assertEq(_recipient, recipient);
+            assertEq(_amount, amount);
+            assertEq(_settled, false);
+            assertEq(_token, address(0));
+            assertEq(address(escrow).balance, amount);
+        }
+    }
+
+    function test_CreateEscrowWithERC20(uint256 amount) public {
+        if (amount > 0) {
+            token.mint(payer, amount);
+        }
+        vm.startPrank(payer);
+        token.approve(address(escrow), amount);
+        if (amount <= 0) {
+            vm.expectRevert("Amount must be greater than 0");
+        }
+        escrow.createEscrowAccount(id, payer, recipient, amount, address(token));
+        vm.stopPrank();
+        if (amount > 0) {
+            (address _payer, address _recipient, uint256 _amount, bool _settled, address _token, , ) = escrow.escrowAccounts(id);
+        
+            assertEq(_payer, payer);
+            assertEq(_recipient, recipient);
+            assertEq(_amount, amount);
+            assertEq(_settled, false);
+            assertEq(_token, address(token));
+            assertEq(token.balanceOf(address(escrow)), amount);
+        }
     }
 }
