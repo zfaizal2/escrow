@@ -93,6 +93,12 @@ $ forge test
         - LLM generated a good starting point and basic tests such as testing ETH escrow, settlement, and cancellation. A couple 'revert' tests were created as well
         - I added tests for ERC 20 escrow, fuzz tests, and setting up a proper setup function to limit any tests passing due to default values.
             - ex. sender starts with higher balance than recipient, escrow amounts are higher than recipient's balance, etc.
+- OpenZeppelin ERC20
+    - Leveraged OpenZepplin ERC20 contract for safe ERC20 escrow
+- Foundry
+    - Incorporated fuzz features in Foundry to test the contract with random values
+    - Utilized Foundry's debugging tools to step through code, when running into test failures
+    
 
 ## Notes
 
