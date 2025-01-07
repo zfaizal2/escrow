@@ -21,6 +21,7 @@ contract Escrow {
     }
 
     mapping(uint256 => EscrowAccount) public escrowAccounts;
+    uint public expiryTime = 30 days;
 
     function sanityCheck() public payable {
         sendToken(address(0), msg.sender, address(this), 1 ether);
@@ -42,7 +43,7 @@ contract Escrow {
     
     function settleEscrowAccount(uint256 id) public {
         require(escrowAccounts[id].status == EscrowStatus.PENDING, "Escrow account is not pending");
-        require(block.timestamp < escrowAccounts[id].createdAt + 30 days , "Escrow account is expired");
+        require(block.timestamp < escrowAccounts[id].createdAt + expiryTime , "Escrow account is expired");
         escrowAccounts[id].status = EscrowStatus.SETTLED;
         escrowAccounts[id].settled = true;
         sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].recipient, escrowAccounts[id].amount);
@@ -50,7 +51,7 @@ contract Escrow {
 
     function cancelEscrowAccount(uint256 id) public {
         require(escrowAccounts[id].status == EscrowStatus.PENDING, "Escrow account is not pending");
-        require(block.timestamp > escrowAccounts[id].createdAt + 30 days, "Escrow account is still active");
+        require(block.timestamp > escrowAccounts[id].createdAt + expiryTime, "Escrow account is still active");
         escrowAccounts[id].status = EscrowStatus.CANCELLED;
         escrowAccounts[id].settled = true;
         sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].payer, escrowAccounts[id].amount);

@@ -22,6 +22,7 @@ contract EscrowTest is Test {
     address public recipient = 0x534347d1766E89dB52C440AF833f0384d861B13E;
     uint256 public defaultAmount = 5;
     uint256 public id = 1;
+    uint public expiryTime = 31 days;
 
     function setUp() public {
         escrow = new Escrow();
@@ -95,7 +96,7 @@ contract EscrowTest is Test {
         vm.stopPrank();
 
         // Warp time to after 30 days
-        vm.warp(block.timestamp + 31 days);
+        vm.warp(block.timestamp + expiryTime);
 
         uint256 payerBalanceBefore = payer.balance;
         
@@ -116,7 +117,7 @@ contract EscrowTest is Test {
 
 
         // Warp time to after 30 days
-        vm.warp(block.timestamp + 31 days);
+        vm.warp(block.timestamp + expiryTime);
 
         uint256 payerBalanceBefore = payer.balance;
 
@@ -138,7 +139,7 @@ contract EscrowTest is Test {
         vm.stopPrank();
 
         // Warp time to after 30 days
-        vm.warp(block.timestamp + 31 days);
+        vm.warp(block.timestamp + expiryTime);
 
         vm.expectRevert("Escrow account is expired");
         escrow.settleEscrowAccount(id);
