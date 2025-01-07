@@ -54,6 +54,14 @@ contract Escrow {
         sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].payer, escrowAccounts[id].amount);
     }
 
+    function refundEscrowAccount(uint256 id) public {
+        require(escrowAccounts[id].status == EscrowStatus.PENDING, "Escrow account is not pending");
+        require(msg.sender == escrowAccounts[id].recipient, "Only recipient can refund");
+        escrowAccounts[id].status = EscrowStatus.CANCELLED;
+        escrowAccounts[id].settled = true;
+        sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].payer, escrowAccounts[id].amount);
+    }
+
     // Function to receive Ether. msg.data must be empty
     receive() external payable {}
 

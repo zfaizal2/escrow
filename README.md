@@ -115,3 +115,6 @@ Some notes taken during development, which shaped design decisions.
 - using uni v2 as a reference for 'best practices'
     - using a factory pattern to create pairs
         - likely unnecessary for escrow, as they are short lived contracts, and increase cost of creating escrow accounts
+- added `refund` function, to allow for a recipient to refund an escrow account, even before expiry
+    - `cancelEscrowAccount` still allows recipient to cancel an escrow account, though only after expiry
+    

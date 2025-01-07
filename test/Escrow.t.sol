@@ -200,4 +200,21 @@ contract EscrowTest is Test {
             assertEq(token.balanceOf(address(escrow)), amount);
         }
     }
+
+    function test_RefundEscrowWithEth() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+        uint256 payerBalanceBefore = payer.balance;
+        // Set signer as recipient
+        vm.startPrank(recipient);
+        escrow.refundEscrowAccount(id);
+        vm.stopPrank();
+
+        (,,, bool _settled,,, Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
+        assertEq(_settled, true);
+        assertEq(uint256(_status), uint256(Escrow.EscrowStatus.CANCELLED));
+        assertEq(payer.balance - payerBalanceBefore, defaultAmount);
+    }
 }
