@@ -31,6 +31,7 @@ contract EscrowTest is Test {
         // Fund accounts
         vm.deal(payer, 10 ether);
         vm.deal(recipient, 0.1 ether);
+        vm.deal(maliciousActor, 0.1 ether);
     }
 
     function test_SanityCheck() public {
@@ -261,5 +262,41 @@ contract EscrowTest is Test {
         vm.expectRevert("Only recipient can refund");
         escrow.refundEscrowAccount(id);
         vm.stopPrank();
+    }
+
+    function testRevert_MaliciousEditEscrowAccount() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+        vm.startPrank(maliciousActor);
+        vm.expectRevert("Only signer can create escrow account");
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, maliciousActor, defaultAmount, address(0));
+        vm.stopPrank();
+
+        (address _payer, address _recipient, uint256 _amount, bool _settled,,,) = escrow.escrowAccounts(id);
+
+        assertEq(_payer, payer);
+        assertEq(_recipient, recipient);
+        assertEq(_amount, defaultAmount);
+        assertEq(_settled, false);
+    }
+
+    function testRevert_EditEscrowAccount() public {
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+        vm.startPrank(payer);
+        vm.expectRevert("Escrow account already exists");
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount - 1, address(0));
+        vm.stopPrank();
+
+        (address _payer, address _recipient, uint256 _amount, bool _settled,,,) = escrow.escrowAccounts(id);
+        assertEq(_payer, payer);
+        assertEq(_recipient, recipient);
+        assertEq(_amount, defaultAmount);
+        assertEq(_settled, false);
     }
 }

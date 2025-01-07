@@ -33,6 +33,8 @@ contract Escrow {
     {
         require(payer != recipient, "Payer and recipient cannot be the same");
         require(amount > 0, "Amount must be greater than 0");
+        require(msg.sender == payer, "Only signer can create escrow account");
+        require(escrowAccounts[id].amount == 0, "Escrow account already exists");
         sendToken(token, payer, address(this), amount);
         escrowAccounts[id] =
             EscrowAccount(payer, recipient, amount, false, token, block.timestamp, EscrowStatus.PENDING);
