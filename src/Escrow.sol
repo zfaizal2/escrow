@@ -41,6 +41,7 @@ contract Escrow {
     function settleEscrowAccount(uint256 id) public {
         require(escrowAccounts[id].status == EscrowStatus.PENDING, "Escrow account is not pending");
         require(block.timestamp < escrowAccounts[id].createdAt + expiryTime, "Escrow account is expired");
+        require(msg.sender == escrowAccounts[id].recipient, "Only recipient can settle");
         escrowAccounts[id].status = EscrowStatus.SETTLED;
         escrowAccounts[id].settled = true;
         sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].recipient, escrowAccounts[id].amount);
@@ -49,6 +50,7 @@ contract Escrow {
     function cancelEscrowAccount(uint256 id) public {
         require(escrowAccounts[id].status == EscrowStatus.PENDING, "Escrow account is not pending");
         require(block.timestamp > escrowAccounts[id].createdAt + expiryTime, "Escrow account is still active");
+        require(msg.sender == escrowAccounts[id].payer, "Only payer can cancel");
         escrowAccounts[id].status = EscrowStatus.CANCELLED;
         escrowAccounts[id].settled = true;
         sendToken(escrowAccounts[id].token, address(this), escrowAccounts[id].payer, escrowAccounts[id].amount);

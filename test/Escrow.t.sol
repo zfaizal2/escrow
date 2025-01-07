@@ -19,6 +19,7 @@ contract EscrowTest is Test {
 
     address public payer = 0xEBcFba9f74a34f7118D1D2C078fCff4719D6518D;
     address public recipient = 0x534347d1766E89dB52C440AF833f0384d861B13E;
+    address public maliciousActor = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045;
     uint256 public defaultAmount = 5;
     uint256 public id = 1;
     uint256 public expiryTime = 31 days;
@@ -81,7 +82,9 @@ contract EscrowTest is Test {
         uint256 recipientBalanceBefore = recipient.balance;
 
         // Settle escrow
+        vm.startPrank(recipient);
         escrow.settleEscrowAccount(id);
+        vm.stopPrank();
 
         (,,, bool _settled,,, Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
         assertEq(_settled, true);
@@ -101,7 +104,9 @@ contract EscrowTest is Test {
         uint256 payerBalanceBefore = payer.balance;
 
         // Cancel escrow
+        vm.startPrank(payer);
         escrow.cancelEscrowAccount(id);
+        vm.stopPrank();
 
         (,,, bool _settled,,, Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
         assertEq(_settled, true);
@@ -122,13 +127,14 @@ contract EscrowTest is Test {
 
         // Set signer as recipient
         vm.startPrank(recipient);
+        vm.expectRevert("Only payer can cancel");
         escrow.cancelEscrowAccount(id);
         vm.stopPrank();
 
         (,,, bool _settled,,, Escrow.EscrowStatus _status) = escrow.escrowAccounts(id);
-        assertEq(_settled, true);
-        assertEq(uint256(_status), uint256(Escrow.EscrowStatus.CANCELLED));
-        assertEq(payer.balance - payerBalanceBefore, defaultAmount);
+        assertEq(_settled, false);
+        assertEq(uint256(_status), uint256(Escrow.EscrowStatus.PENDING));
+        assertEq(payer.balance - payerBalanceBefore, 0);
     }
 
     function testRevert_SettleExpiredEscrow() public {
@@ -216,5 +222,17 @@ contract EscrowTest is Test {
         assertEq(_settled, true);
         assertEq(uint256(_status), uint256(Escrow.EscrowStatus.CANCELLED));
         assertEq(payer.balance - payerBalanceBefore, defaultAmount);
+    }
+
+    function testRevert_MaliciousSettleEscrowAccount() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+        vm.startPrank(maliciousActor);
+        vm.expectRevert("Only recipient can settle");
+        escrow.settleEscrowAccount(id);
+        vm.stopPrank();
     }
 }
