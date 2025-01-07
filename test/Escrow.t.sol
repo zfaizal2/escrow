@@ -235,4 +235,31 @@ contract EscrowTest is Test {
         escrow.settleEscrowAccount(id);
         vm.stopPrank();
     }
+
+    function testRevert_MaliciousCancelEscrowAccount() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+        // Warp time to after 30 days
+        vm.warp(block.timestamp + expiryTime);
+
+        vm.startPrank(maliciousActor);
+        vm.expectRevert("Only payer can cancel");
+        escrow.cancelEscrowAccount(id);
+        vm.stopPrank();
+    }
+
+    function testRevert_MaliciousRefundEscrowAccount() public {
+        // Create escrow first
+        vm.startPrank(payer);
+        escrow.createEscrowAccount{value: defaultAmount}(id, payer, recipient, defaultAmount, address(0));
+        vm.stopPrank();
+
+        vm.startPrank(maliciousActor);
+        vm.expectRevert("Only recipient can refund");
+        escrow.refundEscrowAccount(id);
+        vm.stopPrank();
+    }
 }
